@@ -97,20 +97,38 @@
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m)); }
     
     function buildFullAddress(school) {
-        return [school.calleYNumero, school.colonia, school.alcaldia, school.cP, 'CDMX', 'México'].filter(p => p && p !== 'N/A' && p !== '' && p !== '0').join(', ');
+        const parts = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A' && p !== '' && p !== '0');
+        if (parts.length === 0) return '';
+        return parts.join(', ') + ', CDMX, México';
     }
 
     async function geocodeAddress(address) {
-        if (!address || address.length < 10) return null;
+        if (!address || address.length < 15) return null;
         if (geocodeCache[address]) return geocodeCache[address];
-        await new Promise(r => setTimeout(r, 200));
+        
+        await new Promise(r => setTimeout(r, 250));
+        
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=mx`);
-            const data = await response.json();
+            // Primero intentar con dirección completa
+            let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=mx`);
+            let data = await response.json();
+            
             if (data && data.length > 0) {
                 const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
                 geocodeCache[address] = coords;
                 return coords;
+            }
+            
+            // Segundo intento: solo calle y colonia
+            const parts = address.split(',').slice(0, 2);
+            if (parts.length >= 2) {
+                response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(parts.join(',') + ', CDMX')}&limit=1&countrycodes=mx`);
+                data = await response.json();
+                if (data && data.length > 0) {
+                    const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+                    geocodeCache[address] = coords;
+                    return coords;
+                }
             }
         } catch (error) { console.error('Geocoding error:', error); }
         geocodeCache[address] = null;
@@ -149,17 +167,15 @@
 
         filteredSchools.forEach(school => {
             const direccionCompleta = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A' && p !== '0').join(', ') || 'Dirección no especificada';
-            const escritorio = school.cantidadDeEquiposDeEscritorioRequeridos || '0';
-            const laptop = school.cantidadDeEquiposLaptopRequeridos || '0';
-            const laptopAlto = school.cantidadDeEquiposLaptopAltoDesempenoRequeridos || '0';
-            const totalEquipos = school.totalDeEquipos || (parseInt(escritorio) + parseInt(laptop) + parseInt(laptopAlto)) || '0';
             cardsHtml += `
                 <div class="school-card" data-cct="${escapeHtml(school.cct || '')}">
                     <div class="school-name">🏫 ${escapeHtml(school.nombreDelCct || 'Sin nombre')}<span class="cct-badge">${escapeHtml(school.cct || 'Sin CCT')}</span></div>
                     <div class="school-address">📍 ${escapeHtml(direccionCompleta)}</div>
                     <div class="school-details">
-                        <div><span>🖥️ Escritorio:</span> ${escritorio}</div><div><span>💻 Laptop:</span> ${laptop}</div>
-                        <div><span>⚡ Laptop AD:</span> ${laptopAlto}</div><div><span>📊 Total:</span> ${totalEquipos}</div>
+                        <div><span>🖥️ Escritorio:</span> ${school.cantidadDeEquiposDeEscritorioRequeridos || '0'}</div>
+                        <div><span>💻 Laptop:</span> ${school.cantidadDeEquiposLaptopRequeridos || '0'}</div>
+                        <div><span>⚡ Laptop AD:</span> ${school.cantidadDeEquiposLaptopAltoDesempenoRequeridos || '0'}</div>
+                        <div><span>📊 Total:</span> ${school.totalDeEquipos || '0'}</div>
                         <div><span>🏷️ Tipo CCT:</span> ${escapeHtml(school.tipoDeCct || 'N/A')}</div>
                         <div><span>📅 Entrega:</span> ${escapeHtml(school.diaDeEntrega || 'N/A')}</div>
                         <div><span>👤 Enlace 1:</span> ${escapeHtml(school.enlace1 || 'N/A')} / ${escapeHtml(school.telefonoEnlace1 || 'N/A')}</div>
@@ -171,41 +187,28 @@
         });
         container.innerHTML = cardsHtml;
 
-        // Progreso en el mapa
-        const statusControl = L.control({ position: 'bottomright' });
-        statusControl.onAdd = function() { const div = L.DomUtil.create('div'); div.innerHTML = '📍 Cargando ubicaciones...'; div.style.background = 'white'; div.style.padding = '4px 10px'; div.style.borderRadius = '20px'; div.style.fontSize = '11px'; div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'; return div; };
-        statusControl.addTo(mapInstance);
-
-        const schoolsWithAddresses = filteredSchools.map(s => ({ school: s, address: buildFullAddress(s) })).filter(i => i.address && i.address !== 'CDMX, México' && i.address !== ', CDMX, México');
+        // Procesar geolocalización
+        const schoolsWithAddresses = filteredSchools.map(s => ({ school: s, address: buildFullAddress(s) })).filter(i => i.address);
         let processed = 0;
         
         for (let i = 0; i < schoolsWithAddresses.length; i++) {
             const { school, address } = schoolsWithAddresses[i];
             const coords = await geocodeAddress(address);
             processed++;
-            if (statusControl._container) statusControl._container.innerHTML = `📍 Procesando ${processed}/${schoolsWithAddresses.length}...`;
             if (coords) {
                 const marker = L.marker([coords.lat, coords.lng]).addTo(mapInstance);
-                marker.bindPopup(`<b>${escapeHtml(school.nombreDelCct || 'Sin nombre')}</b><br><span style="font-size:0.65rem">${escapeHtml(school.cct || '')}</span><br>${escapeHtml(address.substring(0, 80))}`);
-                marker.on('click', () => {
-                    const card = document.querySelector(`.school-card[data-cct="${escapeHtml(school.cct).replace(/"/g, '&quot;')}"]`);
-                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                });
+                marker.bindPopup(`<b>${escapeHtml(school.nombreDelCct || 'Sin nombre')}</b><br>${escapeHtml(school.cct || '')}<br>${escapeHtml(address.substring(0, 80))}`);
                 newMarkers.push(marker);
                 bounds.extend([coords.lat, coords.lng]);
             }
         }
         
-        mapInstance.removeControl(statusControl);
         clearMarkers();
         currentMarkers = newMarkers;
         if (newMarkers.length > 0 && bounds.isValid()) mapInstance.fitBounds(bounds, { padding: [40, 40] });
         else mapInstance.setView([19.4326, -99.1332], 11);
 
-        if (newMarkers.length === 0) {
-            container.innerHTML += `<div class="empty-state" style="color:#c62828;">⚠️ No se pudieron ubicar centros en el mapa. Verifica las direcciones en tu hoja de cálculo.</div>`;
-        }
-
+        // EVENTO: Click en tarjeta → centrar mapa (NO abre Google Maps)
         document.querySelectorAll('.school-card').forEach(card => {
             card.addEventListener('click', async (e) => {
                 if (e.target.classList.contains('ver-mapa-link')) return;
@@ -213,12 +216,15 @@
                 if (matched) await centerMapOnSchool(matched);
             });
         });
+        
+        // EVENTO: Botón "Ver en Google Maps" → SOLO este abre externo
         document.querySelectorAll('.ver-mapa-link').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const direccion = btn.dataset.direccion;
-                if (direccion && direccion !== 'Dirección no especificada') window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`, '_blank');
-                else alert('No hay dirección suficiente');
+                if (direccion && direccion !== 'Dirección no especificada') {
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`, '_blank');
+                }
             });
         });
     }
@@ -228,6 +234,7 @@
         if (!query) { renderSchools(schoolsData); return; }
         renderSchools(schoolsData.filter(s => (s.nombreDelCct || '').toLowerCase().includes(query) || (s.cct || '').toLowerCase().includes(query)));
     }
+    
     function debounce(fn, d) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), d); }; }
 
     function parseTSVToSchools(tsvText) {
@@ -235,6 +242,7 @@
         if (lines.length < 2) return [];
         const headers = lines[0].split('\t').map(h => h.trim().toLowerCase());
         const getIdx = names => { for (let n of names) { let i = headers.findIndex(h => h === n); if (i !== -1) return i; } return -1; };
+        
         const idxNombre = getIdx(['nombre del cct', 'nombre del centro', 'nombre']);
         const idxCCT = getIdx(['cct']);
         const idxCalle = getIdx(['calle y número', 'calle y numero']);
@@ -251,6 +259,7 @@
         const idxTel1 = getIdx(['teléfono enlace 1', 'telefono enlace 1']);
         const idxEnlace2 = getIdx(['enlace 2']);
         const idxTel2 = getIdx(['tel. enlace 2', 'teléfono enlace 2']);
+        
         const schools = [];
         for (let i = 1; i < lines.length; i++) {
             const v = lines[i].split('\t').map(x => x.trim().replace(/^"|"$/g, ''));
@@ -279,7 +288,7 @@
 
     async function loadData() {
         const container = document.getElementById('resultsContainer');
-        container.innerHTML = `<div class="empty-state"><div class="loading-spinner"></div> Cargando ${schoolsData.length ? 'actualizando' : ''} datos...</div>`;
+        container.innerHTML = `<div class="empty-state"><div class="loading-spinner"></div> Cargando datos...</div>`;
         try {
             const response = await fetch(GOOGLE_SHEET_TSV_URL);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
