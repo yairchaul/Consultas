@@ -8,27 +8,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
-            min-height: 100vh;
-            padding: 1rem;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.94);
-            backdrop-filter: blur(2px);
-            border-radius: 1.5rem;
-            box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.25);
-            overflow: hidden;
-        }
-        .hero {
-            background: linear-gradient(105deg, #1a2a3a 0%, #0f212f 100%);
-            padding: 1.5rem 1.5rem 1.2rem;
-            text-align: center;
-            border-bottom: 4px solid #ffb74d;
-        }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); min-height: 100vh; padding: 1rem; }
+        .container { max-width: 1400px; margin: 0 auto; background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(2px); border-radius: 1.5rem; box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
+        .hero { background: linear-gradient(105deg, #1a2a3a 0%, #0f212f 100%); padding: 1.5rem 1.5rem 1.2rem; text-align: center; border-bottom: 4px solid #ffb74d; }
         h1 { font-size: 1.6rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
         h1::before { content: "📍"; font-size: 1.6rem; }
         .sub { color: #cbd5e1; margin-top: 0.5rem; font-size: 0.85rem; }
@@ -58,6 +40,8 @@
         .ver-mapa-link { font-size: 0.7rem; background: none; border: none; color: #f59e0b; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 8px; border-radius: 20px; transition: background 0.2s; }
         .ver-mapa-link:hover { background: #fef3c7; color: #d97706; }
         .empty-state { text-align: center; padding: 2rem 1rem; color: #8ba0bc; font-size: 0.85rem; }
+        .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #ffb74d; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 768px) { body { padding: 0.5rem; } .dashboard { flex-direction: column; } .map-container { padding: 0.6rem; } .results-panel { border-left: none; border-top: 1px solid #e2e8f0; padding: 0.8rem; } #map { height: 280px; } h1 { font-size: 1.3rem; } .hero { padding: 1rem; } .school-details { grid-template-columns: 1fr; gap: 3px; } }
         #resultsContainer::-webkit-scrollbar { width: 4px; }
         #resultsContainer::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
@@ -113,12 +97,13 @@
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m)); }
     
     function buildFullAddress(school) {
-        return [school.calleYNumero, school.colonia, school.alcaldia, school.cP, 'CDMX', 'México'].filter(p => p && p !== 'N/A' && p !== '').join(', ');
+        return [school.calleYNumero, school.colonia, school.alcaldia, school.cP, 'CDMX', 'México'].filter(p => p && p !== 'N/A' && p !== '' && p !== '0').join(', ');
     }
 
     async function geocodeAddress(address) {
+        if (!address || address.length < 10) return null;
         if (geocodeCache[address]) return geocodeCache[address];
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 200));
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=mx`);
             const data = await response.json();
@@ -128,11 +113,13 @@
                 return coords;
             }
         } catch (error) { console.error('Geocoding error:', error); }
+        geocodeCache[address] = null;
         return null;
     }
 
     async function centerMapOnSchool(school) {
         const address = buildFullAddress(school);
+        if (!address) return false;
         const coords = await geocodeAddress(address);
         if (coords) {
             mapInstance.setView([coords.lat, coords.lng], 17);
@@ -155,13 +142,13 @@
             clearMarkers();
             return;
         }
-        container.innerHTML = `<div class="empty-state">🔄 Cargando mapa interactivo...</div>`;
+        container.innerHTML = `<div class="empty-state"><div class="loading-spinner"></div> Cargando mapa interactivo...</div>`;
         let cardsHtml = '';
         const bounds = L.latLngBounds();
         const newMarkers = [];
 
         filteredSchools.forEach(school => {
-            const direccionCompleta = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A').join(', ') || 'Dirección no especificada';
+            const direccionCompleta = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A' && p !== '0').join(', ') || 'Dirección no especificada';
             const escritorio = school.cantidadDeEquiposDeEscritorioRequeridos || '0';
             const laptop = school.cantidadDeEquiposLaptopRequeridos || '0';
             const laptopAlto = school.cantidadDeEquiposLaptopAltoDesempenoRequeridos || '0';
@@ -184,21 +171,40 @@
         });
         container.innerHTML = cardsHtml;
 
-        const schoolsWithAddresses = filteredSchools.map(s => ({ school: s, address: buildFullAddress(s) })).filter(i => i.address && i.address !== 'CDMX, México');
+        // Progreso en el mapa
+        const statusControl = L.control({ position: 'bottomright' });
+        statusControl.onAdd = function() { const div = L.DomUtil.create('div'); div.innerHTML = '📍 Cargando ubicaciones...'; div.style.background = 'white'; div.style.padding = '4px 10px'; div.style.borderRadius = '20px'; div.style.fontSize = '11px'; div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'; return div; };
+        statusControl.addTo(mapInstance);
+
+        const schoolsWithAddresses = filteredSchools.map(s => ({ school: s, address: buildFullAddress(s) })).filter(i => i.address && i.address !== 'CDMX, México' && i.address !== ', CDMX, México');
+        let processed = 0;
+        
         for (let i = 0; i < schoolsWithAddresses.length; i++) {
             const { school, address } = schoolsWithAddresses[i];
             const coords = await geocodeAddress(address);
+            processed++;
+            if (statusControl._container) statusControl._container.innerHTML = `📍 Procesando ${processed}/${schoolsWithAddresses.length}...`;
             if (coords) {
                 const marker = L.marker([coords.lat, coords.lng]).addTo(mapInstance);
                 marker.bindPopup(`<b>${escapeHtml(school.nombreDelCct || 'Sin nombre')}</b><br><span style="font-size:0.65rem">${escapeHtml(school.cct || '')}</span><br>${escapeHtml(address.substring(0, 80))}`);
+                marker.on('click', () => {
+                    const card = document.querySelector(`.school-card[data-cct="${escapeHtml(school.cct).replace(/"/g, '&quot;')}"]`);
+                    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
                 newMarkers.push(marker);
                 bounds.extend([coords.lat, coords.lng]);
             }
         }
+        
+        mapInstance.removeControl(statusControl);
         clearMarkers();
         currentMarkers = newMarkers;
         if (newMarkers.length > 0 && bounds.isValid()) mapInstance.fitBounds(bounds, { padding: [40, 40] });
         else mapInstance.setView([19.4326, -99.1332], 11);
+
+        if (newMarkers.length === 0) {
+            container.innerHTML += `<div class="empty-state" style="color:#c62828;">⚠️ No se pudieron ubicar centros en el mapa. Verifica las direcciones en tu hoja de cálculo.</div>`;
+        }
 
         document.querySelectorAll('.school-card').forEach(card => {
             card.addEventListener('click', async (e) => {
@@ -273,7 +279,7 @@
 
     async function loadData() {
         const container = document.getElementById('resultsContainer');
-        container.innerHTML = `<div class="empty-state">🔄 Cargando ${schoolsData.length ? 'actualizando' : ''} datos...</div>`;
+        container.innerHTML = `<div class="empty-state"><div class="loading-spinner"></div> Cargando ${schoolsData.length ? 'actualizando' : ''} datos...</div>`;
         try {
             const response = await fetch(GOOGLE_SHEET_TSV_URL);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -284,7 +290,7 @@
             await renderSchools(schoolsData);
         } catch (err) {
             console.error(err);
-            container.innerHTML = `<div class="empty-state" style="color:#c62828;">⚠️ Error cargando datos.<br>Verifica que la hoja esté publicada.</div>`;
+            container.innerHTML = `<div class="empty-state" style="color:#c62828;">⚠️ Error cargando datos.<br>Verifica que la hoja esté publicada correctamente.</div>`;
             document.getElementById('totalCountText').innerHTML = '⚠️ Error';
         }
     }
