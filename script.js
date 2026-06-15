@@ -1,4 +1,4 @@
-// ==================== URL REAL DE TU GOOGLE SHEETS (TSV) ====================
+// ==================== CONFIGURACIÓN ====================
 const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxAgXISY3emQKTuIKIvTHPGZI80gxsb6DDiZK2c_6Db09QoZ_aOI0bKvITvosX-8XhFDxUgkURgOtF/pub?gid=0&single=true&output=tsv';
 
 let schoolsData = [];
@@ -15,19 +15,16 @@ function initMap() {
     }).addTo(mapInstance);
 }
 
-// Limpiar marcadores
 function clearMarkers() {
     currentMarkers.forEach(marker => mapInstance.removeLayer(marker));
     currentMarkers = [];
 }
 
-// Escapar HTML
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
 }
 
-// Construir dirección completa
 function buildFullAddress(school) {
     const parts = [
         school.calleYNumero,
@@ -40,69 +37,40 @@ function buildFullAddress(school) {
     return parts.join(', ');
 }
 
-// Geocodificar dirección
-async function geocodeAddress(address, schoolId) {
-    if (geocodeCache[address]) {
-        return geocodeCache[address];
-    }
-    
+async function geocodeAddress(address) {
+    if (geocodeCache[address]) return geocodeCache[address];
     await new Promise(resolve => setTimeout(resolve, 100));
-    
     try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=mx`
-        );
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=mx`);
         const data = await response.json();
-        
         if (data && data.length > 0) {
             const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
             geocodeCache[address] = coords;
             return coords;
         }
     } catch (error) {
-        console.error(`Error geocodificando:`, error);
+        console.error('Geocoding error:', error);
     }
     return null;
 }
 
-// Centrar mapa en una escuela específica
+// CENTRAR MAPA EN UNA ESCUELA (función clave que recupera la interactividad)
 async function centerMapOnSchool(school) {
     const address = buildFullAddress(school);
-    const coords = await geocodeAddress(address, school.cct);
+    const coords = await geocodeAddress(address);
     
     if (coords) {
-        // Centrar mapa con zoom
         mapInstance.setView([coords.lat, coords.lng], 17);
-        
-        // Encontrar y abrir el marcador correspondiente
         const marker = currentMarkers.find(m => {
             const pos = m.getLatLng();
             return pos.lat === coords.lat && pos.lng === coords.lng;
         });
-        
-        if (marker) {
-            marker.openPopup();
-        }
-        
-        // Agregar un efecto de pulso temporal en el mapa
-        const pulseIcon = L.divIcon({
-            className: 'pulse-marker',
-            html: '<div style="width:20px;height:20px;background:#f59e0b;border-radius:50%;box-shadow:0 0 0 0 rgba(245,158,11,0.7);animation:pulse 1.5s infinite;"></div>',
-            iconSize: [20, 20]
-        });
-        
-        const tempMarker = L.marker([coords.lat, coords.lng], { icon: pulseIcon }).addTo(mapInstance);
-        setTimeout(() => mapInstance.removeLayer(tempMarker), 1500);
-    } else if (address && address !== 'CDMX, México') {
-        // Si no se pudo geolocalizar, abrir Google Maps como fallback
-        const confirmar = confirm('No se pudo ubicar exactamente en el mapa. ¿Quieres ver la dirección en Google Maps?');
-        if (confirmar) {
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
-        }
+        if (marker) marker.openPopup();
+        return true;
     }
+    return false;
 }
 
-// Renderizar lista + mapa
 async function renderSchools(filteredSchools) {
     const resultCountSpan = document.getElementById('resultCount');
     resultCountSpan.innerText = filteredSchools.length;
@@ -122,7 +90,6 @@ async function renderSchools(filteredSchools) {
     const bounds = L.latLngBounds();
     const newMarkers = [];
 
-    // Generar HTML de tarjetas
     filteredSchools.forEach((school, idx) => {
         const calle = school.calleYNumero || '';
         const colonia = school.colonia || '';
@@ -143,7 +110,7 @@ async function renderSchools(filteredSchools) {
         const diaEntrega = school.diaDeEntrega || 'N/A';
 
         cardsHtml += `
-            <div class="school-card" data-cct="${escapeHtml(school.cct || '')}" data-nombre="${escapeHtml(school.nombreDelCct || '')}">
+            <div class="school-card" data-cct="${escapeHtml(school.cct || '')}">
                 <div class="school-name">
                     ${escapeHtml(school.nombreDelCct || 'Sin nombre')}
                     <span class="cct-badge">${escapeHtml(school.cct || 'Sin CCT')}</span>
@@ -170,38 +137,23 @@ async function renderSchools(filteredSchools) {
 
     container.innerHTML = cardsHtml;
     
-    // Geocodificar y crear marcadores
     const schoolsWithAddresses = filteredSchools.map(school => ({
         school,
         address: buildFullAddress(school)
     })).filter(item => item.address && item.address !== 'CDMX, México');
 
-    // Progreso en consola
-    console.log(`📍 Geocodificando ${schoolsWithAddresses.length} direcciones...`);
-    
     for (let i = 0; i < schoolsWithAddresses.length; i++) {
         const { school, address } = schoolsWithAddresses[i];
-        const coords = await geocodeAddress(address, school.cct);
+        const coords = await geocodeAddress(address);
         
         if (coords) {
             const popupContent = `
                 <b>${escapeHtml(school.nombreDelCct || 'Sin nombre')}</b><br>
                 <span style="font-size:0.65rem">${escapeHtml(school.cct || '')}</span><br>
                 ${escapeHtml(address.substring(0, 80))}
-                <br><button class="popup-center-btn" data-cct="${escapeHtml(school.cct)}" style="margin-top:5px;padding:4px 8px;background:#f59e0b;border:none;border-radius:12px;color:white;cursor:pointer;">📍 Centrar mapa</button>
             `;
             const marker = L.marker([coords.lat, coords.lng]).addTo(mapInstance);
             marker.bindPopup(popupContent);
-            
-            marker.on('popupopen', () => {
-                const btn = document.querySelector(`.popup-center-btn[data-cct="${escapeHtml(school.cct).replace(/"/g, '&quot;')}"]`);
-                if (btn) {
-                    btn.onclick = () => {
-                        mapInstance.setView([coords.lat, coords.lng], 18);
-                    };
-                }
-            });
-            
             newMarkers.push(marker);
             bounds.extend([coords.lat, coords.lng]);
         }
@@ -214,52 +166,40 @@ async function renderSchools(filteredSchools) {
         mapInstance.fitBounds(bounds, { padding: [40, 40] });
     } else {
         mapInstance.setView([19.4326, -99.1332], 11);
-        if (newMarkers.length === 0) {
-            container.innerHTML += `<div class="empty-state" style="color:#c62828;">⚠️ No se pudieron ubicar centros en el mapa. Verifica las direcciones.</div>`;
-        }
     }
 
-    // EVENTO PRINCIPAL: Al hacer clic en tarjeta → centrar mapa interactivo
+    // EVENTO PRINCIPAL: Al hacer clic en tarjeta → centra el mapa (NO abre Google Maps)
     document.querySelectorAll('.school-card').forEach(card => {
         card.addEventListener('click', async (e) => {
-            // Evitar que el botón de Google Maps también dispare el evento
             if (e.target.classList.contains('ver-mapa-link')) return;
-            
             const cct = card.dataset.cct;
             const matched = filteredSchools.find(s => s.cct === cct);
             if (matched) {
-                // Centrar mapa en esta escuela (interactivo, no abre Google Maps)
                 await centerMapOnSchool(matched);
-                
-                // Resaltar tarjeta visualmente
+                // Resaltar tarjeta
                 card.style.transition = '0.3s';
                 card.style.borderColor = '#ffb74d';
                 card.style.backgroundColor = '#fff8e7';
-                card.style.boxShadow = '0 8px 20px -8px rgba(0,0,0,0.2)';
                 setTimeout(() => {
                     card.style.borderColor = '#edf2f7';
                     card.style.backgroundColor = 'white';
-                    card.style.boxShadow = '';
                 }, 1500);
             }
         });
     });
 
-    // Botones "Ver en Google Maps" (solo abren externo)
+    // Botón Ver en Google Maps (único que abre externo)
     document.querySelectorAll('.ver-mapa-link').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const direccion = btn.dataset.direccion;
             if (direccion && direccion !== 'Dirección no especificada') {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`, '_blank');
-            } else {
-                alert('No hay dirección suficiente para generar el mapa');
             }
         });
     });
 }
 
-// Búsqueda
 function performSearch() {
     const query = document.getElementById('searchInput').value.trim().toLowerCase();
     if (!query) {
@@ -281,7 +221,6 @@ function debounce(fn, delay) {
     };
 }
 
-// Parsear TSV
 function parseTSVToSchools(tsvText) {
     const lines = tsvText.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) return [];
@@ -339,7 +278,6 @@ function parseTSVToSchools(tsvText) {
     return schools;
 }
 
-// Cargar datos
 async function loadData() {
     const container = document.getElementById('resultsContainer');
     container.innerHTML = `<div class="empty-state">🔄 Cargando datos...</div>`;
@@ -347,17 +285,13 @@ async function loadData() {
         const response = await fetch(GOOGLE_SHEET_TSV_URL);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const text = await response.text();
-        if (!text || text.includes('<!DOCTYPE')) throw new Error('URL inválida o sin permisos públicos');
+        if (!text || text.includes('<!DOCTYPE')) throw new Error('URL inválida');
         schoolsData = parseTSVToSchools(text);
-        if (!schoolsData.length) throw new Error('No se encontraron registros');
+        if (!schoolsData.length) throw new Error('No hay registros');
         await renderSchools(schoolsData);
     } catch (err) {
         console.error(err);
-        container.innerHTML = `
-            <div class="empty-state" style="color:#c62828;">
-                ⚠️ Error cargando datos.<br>
-                Verifica que la hoja esté publicada como TSV y con acceso público.
-            </div>`;
+        container.innerHTML = `<div class="empty-state" style="color:#c62828;">⚠️ Error cargando datos.<br>Verifica que la hoja esté publicada.</div>`;
         document.getElementById('totalCountText').innerHTML = '⚠️ Error';
     }
 }
@@ -375,17 +309,3 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.focus();
     });
 });
-
-// Agregar animación CSS para el pulso
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes pulse {
-        0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-        70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); }
-        100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-    }
-    .pulse-marker {
-        animation: pulse 1.5s infinite;
-    }
-`;
-document.head.appendChild(style);
