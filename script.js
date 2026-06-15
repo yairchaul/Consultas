@@ -16,8 +16,10 @@ function initMap() {
 }
 
 function clearMarkers() {
-    currentMarkers.forEach(marker => mapInstance.removeLayer(marker));
-    currentMarkers = [];
+    if (currentMarkers) {
+        currentMarkers.forEach(marker => mapInstance.removeLayer(marker));
+        currentMarkers = [];
+    }
 }
 
 function escapeHtml(str) {
@@ -39,7 +41,7 @@ function buildFullAddress(school) {
 
 async function geocodeAddress(address) {
     if (geocodeCache[address]) return geocodeCache[address];
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 150));
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=mx`);
         const data = await response.json();
@@ -54,7 +56,7 @@ async function geocodeAddress(address) {
     return null;
 }
 
-// CENTRAR MAPA EN UNA ESCUELA (función clave que recupera la interactividad)
+// CENTRAR MAPA EN UNA ESCUELA (interactivo)
 async function centerMapOnSchool(school) {
     const address = buildFullAddress(school);
     const coords = await geocodeAddress(address);
@@ -63,7 +65,7 @@ async function centerMapOnSchool(school) {
         mapInstance.setView([coords.lat, coords.lng], 17);
         const marker = currentMarkers.find(m => {
             const pos = m.getLatLng();
-            return pos.lat === coords.lat && pos.lng === coords.lng;
+            return Math.abs(pos.lat - coords.lat) < 0.0001 && Math.abs(pos.lng - coords.lng) < 0.0001;
         });
         if (marker) marker.openPopup();
         return true;
@@ -90,7 +92,8 @@ async function renderSchools(filteredSchools) {
     const bounds = L.latLngBounds();
     const newMarkers = [];
 
-    filteredSchools.forEach((school, idx) => {
+    // Generar tarjetas
+    filteredSchools.forEach((school) => {
         const calle = school.calleYNumero || '';
         const colonia = school.colonia || '';
         const alcaldia = school.alcaldia || '';
@@ -112,7 +115,7 @@ async function renderSchools(filteredSchools) {
         cardsHtml += `
             <div class="school-card" data-cct="${escapeHtml(school.cct || '')}">
                 <div class="school-name">
-                    ${escapeHtml(school.nombreDelCct || 'Sin nombre')}
+                    🏫 ${escapeHtml(school.nombreDelCct || 'Sin nombre')}
                     <span class="cct-badge">${escapeHtml(school.cct || 'Sin CCT')}</span>
                 </div>
                 <div class="school-address">
@@ -137,6 +140,7 @@ async function renderSchools(filteredSchools) {
 
     container.innerHTML = cardsHtml;
     
+    // Geocodificar y crear marcadores
     const schoolsWithAddresses = filteredSchools.map(school => ({
         school,
         address: buildFullAddress(school)
@@ -160,7 +164,7 @@ async function renderSchools(filteredSchools) {
     }
     
     clearMarkers();
-    newMarkers.forEach(m => currentMarkers.push(m));
+    currentMarkers = newMarkers;
 
     if (newMarkers.length > 0 && bounds.isValid()) {
         mapInstance.fitBounds(bounds, { padding: [40, 40] });
@@ -168,7 +172,7 @@ async function renderSchools(filteredSchools) {
         mapInstance.setView([19.4326, -99.1332], 11);
     }
 
-    // EVENTO PRINCIPAL: Al hacer clic en tarjeta → centra el mapa (NO abre Google Maps)
+    // EVENTO: Al hacer clic en tarjeta → centrar mapa (NO abre Google Maps)
     document.querySelectorAll('.school-card').forEach(card => {
         card.addEventListener('click', async (e) => {
             if (e.target.classList.contains('ver-mapa-link')) return;
@@ -195,6 +199,8 @@ async function renderSchools(filteredSchools) {
             const direccion = btn.dataset.direccion;
             if (direccion && direccion !== 'Dirección no especificada') {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`, '_blank');
+            } else {
+                alert('No hay dirección suficiente');
             }
         });
     });
@@ -240,16 +246,16 @@ function parseTSVToSchools(tsvText) {
     const idxColonia = getIndex(['colonia']);
     const idxAlcaldia = getIndex(['alcaldía', 'alcaldia']);
     const idxCP = getIndex(['c. p.', 'cp']);
-    const idxDiaEntrega = getIndex(['día de entrega']);
+    const idxDiaEntrega = getIndex(['día de entrega', 'dia de entrega']);
     const idxEscritorio = getIndex(['cantidad de equipos de escritorio requeridos']);
     const idxLaptop = getIndex(['cantidad de equipos laptop requeridos']);
     const idxLaptopAD = getIndex(['cantidad de equipos laptop alto desempeño requeridos']);
     const idxTotal = getIndex(['total de equipos']);
-    const idxTipoCCT = getIndex(['tipo de cct']);
+    const idxTipoCCT = getIndex(['tipo de cct', 'tipo de cct']);
     const idxEnlace1 = getIndex(['enlace 1']);
-    const idxTel1 = getIndex(['teléfono enlace 1']);
+    const idxTel1 = getIndex(['teléfono enlace 1', 'telefono enlace 1']);
     const idxEnlace2 = getIndex(['enlace 2']);
-    const idxTel2 = getIndex(['tel. enlace 2']);
+    const idxTel2 = getIndex(['tel. enlace 2', 'teléfono enlace 2']);
 
     const schools = [];
     for (let i = 1; i < lines.length; i++) {
