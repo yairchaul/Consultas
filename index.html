@@ -8,265 +8,45 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); 
-            min-height: 100vh; 
-            padding: 0.75rem; 
-        }
-        .container { 
-            max-width: 1400px; 
-            margin: 0 auto; 
-            background: rgba(255, 255, 255, 0.94); 
-            backdrop-filter: blur(2px); 
-            border-radius: 1.5rem; 
-            box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.25); 
-            overflow: hidden; 
-        }
-        .hero { 
-            background: linear-gradient(105deg, #1a2a3a 0%, #0f212f 100%); 
-            padding: 1.2rem 1.2rem 1rem; 
-            text-align: center; 
-            border-bottom: 4px solid #ffb74d; 
-        }
-        h1 { 
-            font-size: 1.4rem; 
-            font-weight: 700; 
-            color: white; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 8px; 
-            flex-wrap: wrap; 
-        }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); min-height: 100vh; padding: 0.75rem; }
+        .container { max-width: 1400px; margin: 0 auto; background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(2px); border-radius: 1.5rem; box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
+        .hero { background: linear-gradient(105deg, #1a2a3a 0%, #0f212f 100%); padding: 1.2rem 1.2rem 1rem; text-align: center; border-bottom: 4px solid #ffb74d; }
+        h1 { font-size: 1.4rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
         h1::before { content: "📍"; font-size: 1.4rem; }
         .sub { color: #cbd5e1; margin-top: 0.4rem; font-size: 0.75rem; }
         .search-section { padding: 0.8rem 1rem; background: white; border-bottom: 1px solid #e9eef3; }
         .search-box { position: relative; max-width: 100%; margin: 0 auto; }
-        .search-icon { 
-            position: absolute; 
-            left: 1rem; 
-            top: 50%; 
-            transform: translateY(-50%); 
-            width: 18px; 
-            height: 18px; 
-            fill: #6c86a3; 
-            pointer-events: none; 
-        }
-        #searchInput { 
-            width: 100%; 
-            padding: 0.7rem 1rem 0.7rem 2.6rem; 
-            font-size: 0.85rem; 
-            font-family: 'Inter', sans-serif; 
-            border: 2px solid #e2e8f0; 
-            border-radius: 50px; 
-            background: #fefefe; 
-            transition: all 0.25s ease; 
-        }
-        #searchInput:focus { 
-            outline: none; 
-            border-color: #ffb74d; 
-            box-shadow: 0 0 0 3px rgba(255, 183, 77, 0.2); 
-        }
-        .stats-bar { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            flex-wrap: wrap; 
-            margin-top: 0.6rem; 
-            gap: 0.4rem; 
-            font-size: 0.7rem; 
-        }
-        .badge-count { 
-            background: #ecfdf5; 
-            padding: 0.2rem 0.7rem; 
-            border-radius: 40px; 
-            color: #0b5e42; 
-            font-weight: 600; 
-        }
-        .clear-btn { 
-            background: none; 
-            border: 1px solid #cbd5e1; 
-            padding: 0.2rem 0.7rem; 
-            border-radius: 30px; 
-            cursor: pointer; 
-            font-size: 0.65rem; 
-            transition: all 0.2s; 
-        }
+        .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; fill: #6c86a3; pointer-events: none; }
+        #searchInput { width: 100%; padding: 0.7rem 1rem 0.7rem 2.6rem; font-size: 0.85rem; font-family: 'Inter', sans-serif; border: 2px solid #e2e8f0; border-radius: 50px; background: #fefefe; transition: all 0.25s ease; }
+        #searchInput:focus { outline: none; border-color: #ffb74d; box-shadow: 0 0 0 3px rgba(255, 183, 77, 0.2); }
+        .stats-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-top: 0.6rem; gap: 0.4rem; font-size: 0.7rem; }
+        .badge-count { background: #ecfdf5; padding: 0.2rem 0.7rem; border-radius: 40px; color: #0b5e42; font-weight: 600; }
+        .clear-btn { background: none; border: 1px solid #cbd5e1; padding: 0.2rem 0.7rem; border-radius: 30px; cursor: pointer; font-size: 0.65rem; transition: all 0.2s; }
         .clear-btn:hover { background: #f1f5f9; border-color: #ffb74d; }
         .dashboard { display: flex; flex-wrap: wrap; }
-        .map-container { 
-            flex: 1.2; 
-            min-width: 200px; 
-            background: #eef2f5; 
-            padding: 0.6rem; 
-        }
-        #map { 
-            height: 280px; 
-            width: 100%; 
-            border-radius: 1rem; 
-            box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.2); 
-            background: #cbdde9; 
-            z-index: 1; 
-        }
-        .results-panel { 
-            flex: 0.9; 
-            min-width: 240px; 
-            background: #ffffff; 
-            border-left: 1px solid #eef2f8; 
-            padding: 0.6rem; 
-        }
-        .results-header { 
-            padding: 0 0.4rem 0.5rem 0.4rem; 
-            font-weight: 600; 
-            font-size: 0.9rem; 
-            border-bottom: 2px solid #ffedd5; 
-            display: flex; 
-            align-items: center; 
-            gap: 6px; 
-        }
-        .results-header span { 
-            background: #ffb74d20; 
-            padding: 1px 8px; 
-            border-radius: 30px; 
-            font-size: 0.7rem; 
-        }
-        #resultsContainer { 
-            max-height: 400px; 
-            overflow-y: auto; 
-            padding-right: 3px; 
-        }
-        .school-card { 
-            background: white; 
-            border-radius: 0.8rem; 
-            padding: 0.7rem; 
-            margin-bottom: 0.7rem; 
-            border: 1px solid #edf2f7; 
-            transition: all 0.2s ease; 
-            cursor: pointer; 
-        }
-        .school-card:active { 
-            transform: scale(0.99); 
-            border-color: #ffdeae; 
-            box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.1); 
-        }
-        .school-name { 
-            font-weight: 700; 
-            font-size: 0.85rem; 
-            color: #0c2b3b; 
-            display: flex; 
-            align-items: baseline; 
-            gap: 6px; 
-            flex-wrap: wrap; 
-            margin-bottom: 4px; 
-        }
-        .cct-badge { 
-            background: #eef2ff; 
-            font-size: 0.55rem; 
-            font-weight: 600; 
-            padding: 0.15rem 0.4rem; 
-            border-radius: 20px; 
-            color: #1e40af; 
-            font-family: monospace; 
-        }
-        .school-address { 
-            font-size: 0.65rem; 
-            color: #5b6e8c; 
-            margin: 0.2rem 0; 
-            display: flex; 
-            gap: 4px; 
-            align-items: center; 
-        }
-        .school-details { 
-            font-size: 0.62rem; 
-            color: #2c5a2e; 
-            margin: 0.3rem 0; 
-            display: grid; 
-            grid-template-columns: repeat(2, 1fr); 
-            gap: 3px 8px; 
-            background: #f8fafc; 
-            padding: 5px 7px; 
-            border-radius: 10px; 
-        }
+        .map-container { flex: 1.2; min-width: 200px; background: #eef2f5; padding: 0.6rem; }
+        #map { height: 280px; width: 100%; border-radius: 1rem; box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.2); background: #cbdde9; z-index: 1; }
+        .results-panel { flex: 0.9; min-width: 240px; background: #ffffff; border-left: 1px solid #eef2f8; padding: 0.6rem; }
+        .results-header { padding: 0 0.4rem 0.5rem 0.4rem; font-weight: 600; font-size: 0.9rem; border-bottom: 2px solid #ffedd5; display: flex; align-items: center; gap: 6px; }
+        .results-header span { background: #ffb74d20; padding: 1px 8px; border-radius: 30px; font-size: 0.7rem; }
+        #resultsContainer { max-height: 400px; overflow-y: auto; padding-right: 3px; }
+        .school-card { background: white; border-radius: 0.8rem; padding: 0.7rem; margin-bottom: 0.7rem; border: 1px solid #edf2f7; transition: all 0.2s ease; cursor: pointer; }
+        .school-card:active { transform: scale(0.99); border-color: #ffdeae; box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.1); }
+        .school-name { font-weight: 700; font-size: 0.85rem; color: #0c2b3b; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+        .cct-badge { background: #eef2ff; font-size: 0.55rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 20px; color: #1e40af; font-family: monospace; }
+        .school-address { font-size: 0.65rem; color: #5b6e8c; margin: 0.2rem 0; display: flex; gap: 4px; align-items: center; }
+        .school-details { font-size: 0.62rem; color: #2c5a2e; margin: 0.3rem 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 8px; background: #f8fafc; padding: 5px 7px; border-radius: 10px; }
         .school-details span { font-weight: 600; color: #1e293b; }
-        .school-details .phone-link { 
-            color: #1e40af; 
-            text-decoration: none; 
-            font-weight: 600; 
-            display: inline-flex;
-            align-items: center;
-            gap: 2px;
-        }
+        .school-details .phone-link { color: #1e40af; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px; }
         .school-details .phone-link:active { color: #ffb74d; }
-        .acciones { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 6px; 
-            margin-top: 6px; 
-        }
-        .ver-mapa-link { 
-            font-size: 0.65rem; 
-            background: none; 
-            border: none; 
-            color: #f59e0b; 
-            font-weight: 600; 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 4px; 
-            padding: 4px 8px; 
-            border-radius: 20px; 
-            transition: background 0.2s; 
-        }
+        .acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .ver-mapa-link { font-size: 0.65rem; background: none; border: none; color: #f59e0b; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 20px; transition: background 0.2s; }
         .ver-mapa-link:active { background: #fef3c7; color: #d97706; }
-        .empty-state { 
-            text-align: center; 
-            padding: 2rem 1rem; 
-            color: #8ba0bc; 
-            font-size: 0.8rem; 
-        }
-        .loading-spinner { 
-            display: inline-block; 
-            width: 18px; 
-            height: 18px; 
-            border: 2px solid #f3f3f3; 
-            border-top: 2px solid #ffb74d; 
-            border-radius: 50%; 
-            animation: spin 1s linear infinite; 
-            margin-right: 6px; 
-            vertical-align: middle; 
-        }
+        .empty-state { text-align: center; padding: 2rem 1rem; color: #8ba0bc; font-size: 0.8rem; }
+        .loading-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #f3f3f3; border-top: 2px solid #ffb74d; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 6px; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* Móvil */
-        @media (max-width: 768px) { 
-            body { padding: 0.4rem; } 
-            .dashboard { flex-direction: column; } 
-            .map-container { padding: 0.4rem; } 
-            .results-panel { 
-                border-left: none; 
-                border-top: 1px solid #e2e8f0; 
-                padding: 0.6rem; 
-            } 
-            #map { height: 220px; } 
-            h1 { font-size: 1.1rem; } 
-            .hero { padding: 0.8rem; } 
-            .school-details { 
-                grid-template-columns: 1fr 1fr; 
-                gap: 2px 6px; 
-                font-size: 0.6rem; 
-            }
-            .school-name { font-size: 0.8rem; }
-            .school-card { padding: 0.6rem; }
-            #resultsContainer { max-height: 350px; }
-            .acciones { gap: 4px; }
-            .ver-mapa-link { font-size: 0.6rem; padding: 3px 6px; }
-        }
-        @media (max-width: 480px) { 
-            .school-details { grid-template-columns: 1fr; }
-            #map { height: 180px; }
-        }
-
+        @media (max-width: 768px) { body { padding: 0.4rem; } .dashboard { flex-direction: column; } .map-container { padding: 0.4rem; } .results-panel { border-left: none; border-top: 1px solid #e2e8f0; padding: 0.6rem; } #map { height: 220px; } h1 { font-size: 1.1rem; } .hero { padding: 0.8rem; } .school-details { grid-template-columns: 1fr 1fr; gap: 2px 6px; font-size: 0.6rem; } .school-name { font-size: 0.8rem; } .school-card { padding: 0.6rem; } #resultsContainer { max-height: 350px; } .acciones { gap: 4px; } .ver-mapa-link { font-size: 0.6rem; padding: 3px 6px; } }
+        @media (max-width: 480px) { .school-details { grid-template-columns: 1fr; } #map { height: 180px; } }
         #resultsContainer::-webkit-scrollbar { width: 3px; }
         #resultsContainer::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
         #resultsContainer::-webkit-scrollbar-thumb { background: #ffb74d; border-radius: 10px; }
@@ -305,6 +85,8 @@
     let schoolsData = [];
     let mapInstance = null;
     let currentMarkers = [];
+    let coordenadasValidas = 0;
+    let coordenadasInvalidas = 0;
 
     function initMap() {
         mapInstance = L.map('map').setView([19.4326, -99.1332], 11);
@@ -317,6 +99,30 @@
     function clearMarkers() { currentMarkers.forEach(m => mapInstance.removeLayer(m)); currentMarkers = []; }
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m)); }
 
+    // Función para limpiar coordenadas: convierte coma a punto y valida
+    function parseCoordinate(value) {
+        if (!value) return NaN;
+        if (typeof value === 'string') {
+            // Quitar espacios y reemplazar coma por punto
+            let cleaned = value.trim().replace(/\s/g, '').replace(',', '.');
+            // Si el valor tiene formato científico o caracteres extraños, descartar
+            if (cleaned.includes('E') || cleaned.includes('e') || cleaned.includes('NaN') || cleaned.includes('Infinity')) {
+                return NaN;
+            }
+            const num = parseFloat(cleaned);
+            // Validar que sea un número razonable para México (lat: 14-33, lng: -118 a -86)
+            return num;
+        }
+        return parseFloat(value);
+    }
+
+    function isValidLatLng(lat, lng) {
+        // Verificar que estén en rango para México
+        const latOk = !isNaN(lat) && lat >= 14 && lat <= 33;
+        const lngOk = !isNaN(lng) && lng >= -118 && lng <= -86;
+        return latOk && lngOk;
+    }
+
     function formatPhone(phone) {
         if (!phone) return '';
         return phone.toString().replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '');
@@ -324,7 +130,7 @@
 
     function renderSchools(filteredSchools) {
         document.getElementById('resultCount').innerText = filteredSchools.length;
-        if (schoolsData.length) document.getElementById('totalCountText').innerHTML = `📚 Total: ${schoolsData.length}`;
+        if (schoolsData.length) document.getElementById('totalCountText').innerHTML = `📚 Total: ${schoolsData.length} (${coordenadasValidas} con ubicación)`;
         const container = document.getElementById('resultsContainer');
         if (!filteredSchools.length) {
             container.innerHTML = `<div class="empty-state">🏫 No se encontraron centros.<br>Prueba con otro nombre o CCT.</div>`;
@@ -335,6 +141,7 @@
         let cardsHtml = '';
         const bounds = L.latLngBounds();
         const newMarkers = [];
+        let marcadoresMostrados = 0;
 
         filteredSchools.forEach(school => {
             const direccionCompleta = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A' && p !== '0').join(', ') || 'Dirección no especificada';
@@ -361,12 +168,17 @@
                 </div>
             `;
 
-            // ======== USAR COORDENADAS DE COLUMNAS W Y X ========
-            // El código ahora busca 'latitud' y 'longitud' en los datos parseados
-            // que vienen de las columnas W y X de la hoja
-            const lat = parseFloat(school.latitud);
-            const lng = parseFloat(school.longitud);
-            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+            // ======== LIMPIEZA Y VALIDACIÓN DE COORDENADAS ========
+            const latRaw = school.latitud;
+            const lngRaw = school.longitud;
+            
+            // Convertir a número limpio
+            let lat = parseCoordinate(latRaw);
+            let lng = parseCoordinate(lngRaw);
+            
+            // Si son válidas, crear marcador
+            if (isValidLatLng(lat, lng)) {
+                marcadoresMostrados++;
                 const popupContent = `
                     <b>${escapeHtml(school.nombreDelCct || 'Sin nombre')}</b><br>
                     ${escapeHtml(school.cct || '')}<br>
@@ -386,8 +198,16 @@
         container.innerHTML = cardsHtml;
         clearMarkers();
         currentMarkers = newMarkers;
-        if (newMarkers.length > 0 && bounds.isValid()) mapInstance.fitBounds(bounds, { padding: [40, 40] });
-        else mapInstance.setView([19.4326, -99.1332], 11);
+        
+        if (newMarkers.length > 0 && bounds.isValid()) {
+            mapInstance.fitBounds(bounds, { padding: [40, 40] });
+            console.log(`✅ ${newMarkers.length} marcadores mostrados en el mapa`);
+        } else {
+            mapInstance.setView([19.4326, -99.1332], 11);
+            if (newMarkers.length === 0 && filteredSchools.length > 0) {
+                container.innerHTML += `<div class="empty-state" style="color:#c62828;">⚠️ No se pudieron ubicar ${filteredSchools.length} centros en el mapa. Verifica que las coordenadas en tu hoja estén en formato numérico válido (ej: 19.4326, -99.1332).</div>`;
+            }
+        }
 
         // Click en tarjeta → centrar mapa
         document.querySelectorAll('.school-card').forEach(card => {
@@ -396,15 +216,23 @@
                 const cct = card.dataset.cct;
                 const matched = filteredSchools.find(s => s.cct === cct);
                 if (matched) {
-                    const lat = parseFloat(matched.latitud);
-                    const lng = parseFloat(matched.longitud);
-                    if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                    let lat = parseCoordinate(matched.latitud);
+                    let lng = parseCoordinate(matched.longitud);
+                    if (isValidLatLng(lat, lng)) {
                         mapInstance.setView([lat, lng], 17);
                         const marker = currentMarkers.find(m => {
                             const pos = m.getLatLng();
                             return Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001;
                         });
                         if (marker) marker.openPopup();
+                    } else {
+                        // Si no tiene coordenadas válidas, abrir Google Maps con dirección
+                        const direccion = [
+                            matched.calleYNumero, matched.colonia, matched.alcaldia, matched.cP
+                        ].filter(p => p && p !== 'N/A' && p !== '0').join(', ');
+                        if (direccion && direccion !== 'Dirección no especificada') {
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion + ', CDMX, México')}`, '_blank');
+                        }
                     }
                 }
             });
@@ -416,7 +244,7 @@
                 e.stopPropagation();
                 const direccion = btn.dataset.direccion;
                 if (direccion && direccion !== 'Dirección no especificada') {
-                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`, '_blank');
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion + ', CDMX, México')}`, '_blank');
                 }
             });
         });
@@ -455,52 +283,36 @@
         const idxTel1 = getIdx(['teléfono enlace 1', 'telefono enlace 1']);
         const idxEnlace2 = getIdx(['enlace 2']);
         const idxTel2 = getIdx(['tel. enlace 2', 'teléfono enlace 2']);
-        // ======== BUSCAR LATITUD Y LONGITUD EN CUALQUIER COLUMNA ========
-        // Primero intenta con los nombres exactos, luego busca en W y X
-        let idxLat = getIdx(['latitud']);
-        let idxLng = getIdx(['longitud']);
+        const idxLat = getIdx(['latitud', 'w']);
+        const idxLng = getIdx(['longitud', 'x']);
         
-        // Si no encontró latitud/longitud por nombre, busca por posición (W=columna 23, X=columna 24)
-        // En TSV, la columna W es el índice 22 (0-based) y X es 23
-        if (idxLat === -1) {
-            // Buscar por el encabezado de la columna W en la hoja
-            // Como no sabemos el nombre exacto, intentamos con "w" o buscamos por posición
-            for (let i = 0; i < headers.length; i++) {
-                if (headers[i].toLowerCase().includes('lat') || headers[i] === 'w' || headers[i] === 'columna w') {
-                    idxLat = i;
-                    break;
-                }
-            }
-        }
-        if (idxLng === -1) {
-            for (let i = 0; i < headers.length; i++) {
-                if (headers[i].toLowerCase().includes('lon') || headers[i] === 'x' || headers[i] === 'columna x') {
-                    idxLng = i;
-                    break;
-                }
-            }
-        }
-        
-        // Si aún no encontró, asumir que están en las columnas W y X (índices 22 y 23)
-        if (idxLat === -1 && headers.length > 22) idxLat = 22;
-        if (idxLng === -1 && headers.length > 23) idxLng = 23;
+        // Si no encontró por nombre, buscar por posición (W=22, X=23)
+        let idxLatFinal = idxLat !== -1 ? idxLat : (headers.length > 22 ? 22 : -1);
+        let idxLngFinal = idxLng !== -1 ? idxLng : (headers.length > 23 ? 23 : -1);
 
-        console.log('🔍 Columnas encontradas:');
-        console.log(`  - latitud: columna ${idxLat} (${idxLat !== -1 ? headers[idxLat] : 'no encontrada'})`);
-        console.log(`  - longitud: columna ${idxLng} (${idxLng !== -1 ? headers[idxLng] : 'no encontrada'})`);
+        console.log(`🔍 Columnas - Latitud: ${idxLatFinal} (${idxLatFinal !== -1 ? headers[idxLatFinal] : 'no encontrada'})`);
+        console.log(`🔍 Columnas - Longitud: ${idxLngFinal} (${idxLngFinal !== -1 ? headers[idxLngFinal] : 'no encontrada'})`);
         
         const schools = [];
+        let totalCoords = 0;
+        let validCoords = 0;
+        
         for (let i = 1; i < lines.length; i++) {
             const v = lines[i].split('\t').map(x => x.trim().replace(/^"|"$/g, ''));
             if (v.length < 2) continue;
             
-            // Parsear latitud y longitud (reemplazar coma por punto si es necesario)
-            let latVal = idxLat !== -1 && idxLat < v.length ? v[idxLat] : '';
-            let lngVal = idxLng !== -1 && idxLng < v.length ? v[idxLng] : '';
+            // Leer latitud y longitud
+            let latRaw = idxLatFinal !== -1 && idxLatFinal < v.length ? v[idxLatFinal] : '';
+            let lngRaw = idxLngFinal !== -1 && idxLngFinal < v.length ? v[idxLngFinal] : '';
             
-            // Reemplazar coma decimal por punto
-            if (typeof latVal === 'string') latVal = latVal.replace(',', '.');
-            if (typeof lngVal === 'string') lngVal = lngVal.replace(',', '.');
+            // Limpiar y validar
+            let lat = parseCoordinate(latRaw);
+            let lng = parseCoordinate(lngRaw);
+            
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                totalCoords++;
+                if (isValidLatLng(lat, lng)) validCoords++;
+            }
             
             schools.push({
                 nombreDelCct: idxNombre !== -1 ? v[idxNombre] || '' : '',
@@ -519,10 +331,14 @@
                 telefonoEnlace1: idxTel1 !== -1 ? v[idxTel1] || '' : '',
                 enlace2: idxEnlace2 !== -1 ? v[idxEnlace2] || '' : '',
                 telEnlace2: idxTel2 !== -1 ? v[idxTel2] || '' : '',
-                latitud: parseFloat(latVal),
-                longitud: parseFloat(lngVal)
+                latitud: latRaw,
+                longitud: lngRaw
             });
         }
+        
+        coordenadasValidas = validCoords;
+        coordenadasInvalidas = totalCoords - validCoords;
+        console.log(`📊 Coordenadas: ${validCoords} válidas, ${coordenadasInvalidas} inválidas de ${totalCoords} totales`);
         return schools;
     }
 
