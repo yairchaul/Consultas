@@ -37,36 +37,10 @@
         .school-address { font-size: 0.65rem; color: #5b6e8c; margin: 0.2rem 0; display: flex; gap: 4px; align-items: center; }
         .school-details { font-size: 0.62rem; color: #2c5a2e; margin: 0.3rem 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 8px; background: #f8fafc; padding: 5px 7px; border-radius: 10px; }
         .school-details span { font-weight: 600; color: #1e293b; }
-        .school-details .phone-link { 
-            color: #1e40af; 
-            text-decoration: none; 
-            font-weight: 600; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 2px;
-            padding: 2px 4px;
-            border-radius: 12px;
-            background: #eef2ff;
-            touch-action: manipulation;
-        }
+        .school-details .phone-link { color: #1e40af; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px; border-radius: 12px; background: #eef2ff; touch-action: manipulation; }
         .school-details .phone-link:active { background: #ffb74d; color: white; }
         .acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-        .ver-mapa-link { 
-            font-size: 0.65rem; 
-            background: none; 
-            border: none; 
-            color: #f59e0b; 
-            font-weight: 600; 
-            cursor: pointer; 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 4px; 
-            padding: 4px 8px; 
-            border-radius: 20px; 
-            transition: background 0.2s;
-            touch-action: manipulation;
-            -webkit-tap-highlight-color: transparent;
-        }
+        .ver-mapa-link { font-size: 0.65rem; background: none; border: none; color: #f59e0b; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 20px; transition: background 0.2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
         .ver-mapa-link:active { background: #fef3c7; color: #d97706; }
         .empty-state { text-align: center; padding: 2rem 1rem; color: #8ba0bc; font-size: 0.8rem; }
         .loading-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #f3f3f3; border-top: 2px solid #ffb74d; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 6px; vertical-align: middle; }
@@ -91,7 +65,7 @@
             <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
             </svg>
-            <input type="text" id="searchInput" placeholder="Ej: 'Secundaria Técnica 1' o '09DST0001Z'">
+            <input type="text" id="searchInput" placeholder="Ej: 'Benito Juarez' o '09DST0001Z'">
         </div>
         <div class="stats-bar">
             <div class="badge-count" id="totalCountText">Cargando centros...</div>
@@ -112,7 +86,12 @@
     let mapInstance = null;
     let currentMarkers = [];
     let coordenadasValidas = 0;
-    let coordenadasInvalidas = 0;
+
+    // Normalizar texto (eliminar acentos)
+    function normalizarTexto(texto) {
+        if (!texto) return '';
+        return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ñ/g, 'n');
+    }
 
     function initMap() {
         mapInstance = L.map('map').setView([19.4326, -99.1332], 11);
@@ -146,7 +125,7 @@
         return phone.toString().replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '');
     }
 
-    // Función para centrar el mapa en una escuela
+    // Centrar mapa en una escuela (SOLO eso, sin abrir Google Maps)
     function centerMapOnSchool(school) {
         let lat = parseCoordinate(school.latitud);
         let lng = parseCoordinate(school.longitud);
@@ -230,7 +209,7 @@
             mapInstance.setView([19.4326, -99.1332], 11);
         }
 
-        // ======== EVENTO CLICK EN TARJETA: CENTRA EL MAPA ========
+        // ======== EVENTO CLICK EN TARJETA: SOLO CENTRA EL MAPA ========
         document.querySelectorAll('.school-card').forEach(card => {
             card.addEventListener('click', function(e) {
                 // Si el click fue en un botón o enlace, no hacer nada
@@ -240,21 +219,13 @@
                 const cct = this.dataset.cct;
                 const matched = filteredSchools.find(s => s.cct === cct);
                 if (matched) {
-                    const centrado = centerMapOnSchool(matched);
-                    if (!centrado) {
-                        // Si no tiene coordenadas, abrir Google Maps con dirección
-                        const direccion = [
-                            matched.calleYNumero, matched.colonia, matched.alcaldia, matched.cP
-                        ].filter(p => p && p !== 'N/A' && p !== '0').join(', ');
-                        if (direccion && direccion !== 'Dirección no especificada') {
-                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion + ', CDMX, México')}`, '_blank');
-                        }
-                    }
+                    // SOLO centrar el mapa, NUNCA abrir Google Maps
+                    centerMapOnSchool(matched);
                 }
             });
         });
 
-        // ======== BOTÓN "VER EN GOOGLE MAPS" ========
+        // ======== BOTÓN "VER EN GOOGLE MAPS": SOLO ESTE ABRE GOOGLE MAPS ========
         document.querySelectorAll('.ver-mapa-link').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -270,18 +241,28 @@
         document.querySelectorAll('.phone-link').forEach(link => {
             link.addEventListener('click', function(e) {
                 e.stopPropagation();
-                // El href="tel:..." ya hace lo suyo
             });
         });
     }
 
+    // ======== BÚSQUEDA QUE IGNORA ACENTOS ========
     function performSearch() {
-        const query = document.getElementById('searchInput').value.trim().toLowerCase();
-        if (!query) { renderSchools(schoolsData); return; }
-        renderSchools(schoolsData.filter(s => 
-            (s.nombreDelCct || '').toLowerCase().includes(query) || 
-            (s.cct || '').toLowerCase().includes(query)
-        ));
+        const query = document.getElementById('searchInput').value.trim();
+        if (!query) { 
+            renderSchools(schoolsData); 
+            return; 
+        }
+        
+        const queryNormalizada = normalizarTexto(query);
+        
+        const filtered = schoolsData.filter(school => {
+            const nombreNormalizado = normalizarTexto(school.nombreDelCct || '');
+            const cctNormalizado = normalizarTexto(school.cct || '');
+            return nombreNormalizado.includes(queryNormalizada) || 
+                   cctNormalizado.includes(queryNormalizada);
+        });
+        
+        renderSchools(filtered);
     }
 
     function debounce(fn, d) { let t; return function(...a) { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), d); }; }
@@ -314,9 +295,6 @@
         let idxLatFinal = idxLat !== -1 ? idxLat : (headers.length > 22 ? 22 : -1);
         let idxLngFinal = idxLng !== -1 ? idxLng : (headers.length > 23 ? 23 : -1);
 
-        console.log(`🔍 Columnas - Latitud: ${idxLatFinal} (${idxLatFinal !== -1 ? headers[idxLatFinal] : 'no encontrada'})`);
-        console.log(`🔍 Columnas - Longitud: ${idxLngFinal} (${idxLngFinal !== -1 ? headers[idxLngFinal] : 'no encontrada'})`);
-        
         const schools = [];
         let totalCoords = 0;
         let validCoords = 0;
@@ -359,8 +337,7 @@
         }
         
         coordenadasValidas = validCoords;
-        coordenadasInvalidas = totalCoords - validCoords;
-        console.log(`📊 Coordenadas: ${validCoords} válidas, ${coordenadasInvalidas} inválidas de ${totalCoords} totales`);
+        console.log(`📊 Coordenadas: ${validCoords} válidas de ${totalCoords} totales`);
         return schools;
     }
 
