@@ -182,8 +182,18 @@
             border-radius: 12px; 
             background: #eef2ff; 
             touch-action: manipulation; 
+            margin: 1px 0;
         }
         .school-details .phone-link:active { background: #ffb74d; color: white; }
+        .school-details .phone-incompleto {
+            color: #b91c1c;
+            font-size: 0.6rem;
+            background: #fee2e2;
+            padding: 2px 6px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-left: 2px;
+        }
         .acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
         .ver-mapa-link { 
             font-size: 0.65rem; 
@@ -274,9 +284,65 @@
         return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
     }
 
-    function formatPhone(phone) {
-        if (!phone) return '';
-        return phone.toString().replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '');
+    // ======== FUNCIÓN PARA LIMPIAR Y VALIDAR NÚMEROS DE TELÉFONO ========
+    function limpiarNumeroTelefono(numero) {
+        if (!numero) return null;
+        // Limpiar: eliminar espacios, guiones, paréntesis y dejar solo dígitos
+        let limpio = numero.toString().replace(/[\s\-\(\)]/g, '');
+        // Si solo tiene dígitos y longitud 10, es válido
+        if (/^\d{10}$/.test(limpio)) {
+            return limpio;
+        }
+        return null;
+    }
+
+    // ======== FUNCIÓN PARA EXTRAER MÚLTIPLES NÚMEROS DE UN TEXTO ========
+    function extraerNumerosTelefono(texto) {
+        if (!texto) return [];
+        const numeros = [];
+        // Buscar secuencias de 10 dígitos (pueden tener espacios, guiones o paréntesis)
+        const regex = /(\d{2,4}[\s\-\(\)]*\d{2,4}[\s\-\(\)]*\d{2,4}[\s\-\(\)]*\d{2,4})/g;
+        const matches = texto.match(regex);
+        if (matches) {
+            for (let match of matches) {
+                const limpio = limpiarNumeroTelefono(match);
+                if (limpio) {
+                    numeros.push(limpio);
+                }
+            }
+        }
+        // Si no encontró con regex, intentar limpiar directamente
+        if (numeros.length === 0) {
+            const limpio = limpiarNumeroTelefono(texto);
+            if (limpio) numeros.push(limpio);
+        }
+        return numeros;
+    }
+
+    // ======== FUNCIÓN PARA DETERMINAR SI UN NÚMERO ES VÁLIDO ========
+    function esNumeroValido(numero) {
+        return numero && /^\d{10}$/.test(numero);
+    }
+
+    // ======== FUNCIÓN PARA GENERAR HTML DE UN TELÉFONO ========
+    function generarTelefonoHtml(etiqueta, nombre, telefonoRaw) {
+        if (!telefonoRaw) return '';
+        
+        const numeros = extraerNumerosTelefono(telefonoRaw);
+        let html = `<span>${etiqueta}:</span> ${escapeHtml(nombre || '')} `;
+        
+        if (numeros.length === 0) {
+            // No se encontraron números válidos
+            html += `<span class="phone-incompleto">⚠️ Datos incompletos</span>`;
+        } else {
+            // Mostrar cada número como enlace
+            const links = numeros.map(num => {
+                return `<a class="phone-link" href="tel:${num}" onclick="event.stopPropagation();">📞 ${num}</a>`;
+            });
+            html += links.join(' ');
+        }
+        
+        return html;
     }
 
     function renderSchools(filteredSchools) {
@@ -293,8 +359,10 @@
 
         filteredSchools.forEach(school => {
             const direccionCompleta = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A' && p !== '0').join(', ') || 'Dirección no especificada';
-            const tel1 = formatPhone(school.telefonoEnlace1);
-            const tel2 = formatPhone(school.telEnlace2);
+            
+            // Generar HTML para teléfonos con la nueva lógica
+            const telefono1Html = generarTelefonoHtml('👤 Enlace 1', school.enlace1, school.telefonoEnlace1);
+            const telefono2Html = generarTelefonoHtml('👤 Enlace 2', school.enlace2, school.telEnlace2);
             
             cardsHtml += `
                 <div class="school-card" data-cct="${escapeHtml(school.cct || '')}">
@@ -303,12 +371,10 @@
                     <div class="school-details">
                         <div><span>🖥️ Escritorio:</span> ${school.cantidadDeEquiposDeEscritorioRequeridos || '0'}</div>
                         <div><span>💻 Laptop:</span> ${school.cantidadDeEquiposLaptopRequeridos || '0'}</div>
-                        <div><span>⚡ Laptop AD:</span> ${school.cantidadDeEquiposLaptopAltoDesempenoRequeridos || '0'}</div>
-                        <div><span>📊 Total:</span> ${school.totalDeEquipos || '0'}</div>
-                        <div><span>🏷️ Tipo CCT:</span> ${escapeHtml(school.tipoDeCct || 'N/A')}</div>
+                        <div><span>📊 Total equipos:</span> ${school.totalDeEquipos || '0'}</div>
                         <div><span>📅 Entrega:</span> ${escapeHtml(school.diaDeEntrega || 'N/A')}</div>
-                        <div><span>👤 Enlace 1:</span> ${escapeHtml(school.enlace1 || 'N/A')} ${tel1 ? `<a class="phone-link" href="tel:${tel1}" onclick="event.stopPropagation();">📞 ${escapeHtml(school.telefonoEnlace1)}</a>` : ''}</div>
-                        <div><span>👤 Enlace 2:</span> ${escapeHtml(school.enlace2 || 'N/A')} ${tel2 ? `<a class="phone-link" href="tel:${tel2}" onclick="event.stopPropagation();">📞 ${escapeHtml(school.telEnlace2)}</a>` : ''}</div>
+                        <div style="grid-column: span 2;">${telefono1Html}</div>
+                        <div style="grid-column: span 2;">${telefono2Html}</div>
                     </div>
                     <div class="acciones">
                         <button class="ver-mapa-link" data-direccion="${escapeHtml(direccionCompleta)}" onclick="event.stopPropagation();">🗺️ Ver en Google Maps</button>
@@ -376,9 +442,7 @@
         const idxDiaEntrega = getIdx(['día de entrega', 'dia de entrega']);
         const idxEscritorio = getIdx(['cantidad de equipos de escritorio requeridos']);
         const idxLaptop = getIdx(['cantidad de equipos laptop requeridos']);
-        const idxLaptopAD = getIdx(['cantidad de equipos laptop alto desempeño requeridos']);
         const idxTotal = getIdx(['total de equipos']);
-        const idxTipoCCT = getIdx(['tipo de cct']);
         const idxEnlace1 = getIdx(['enlace 1']);
         const idxTel1 = getIdx(['teléfono enlace 1', 'telefono enlace 1']);
         const idxEnlace2 = getIdx(['enlace 2']);
@@ -400,9 +464,7 @@
                 diaDeEntrega: idxDiaEntrega !== -1 ? v[idxDiaEntrega] || '' : '',
                 cantidadDeEquiposDeEscritorioRequeridos: idxEscritorio !== -1 ? v[idxEscritorio] || '0' : '0',
                 cantidadDeEquiposLaptopRequeridos: idxLaptop !== -1 ? v[idxLaptop] || '0' : '0',
-                cantidadDeEquiposLaptopAltoDesempenoRequeridos: idxLaptopAD !== -1 ? v[idxLaptopAD] || '0' : '0',
                 totalDeEquipos: idxTotal !== -1 ? v[idxTotal] || '0' : '0',
-                tipoDeCct: idxTipoCCT !== -1 ? v[idxTipoCCT] || '' : '',
                 enlace1: idxEnlace1 !== -1 ? v[idxEnlace1] || '' : '',
                 telefonoEnlace1: idxTel1 !== -1 ? v[idxTel1] || '' : '',
                 enlace2: idxEnlace2 !== -1 ? v[idxEnlace2] || '' : '',
