@@ -30,17 +30,43 @@
         .results-header { padding: 0 0.4rem 0.5rem 0.4rem; font-weight: 600; font-size: 0.9rem; border-bottom: 2px solid #ffedd5; display: flex; align-items: center; gap: 6px; }
         .results-header span { background: #ffb74d20; padding: 1px 8px; border-radius: 30px; font-size: 0.7rem; }
         #resultsContainer { max-height: 400px; overflow-y: auto; padding-right: 3px; }
-        .school-card { background: white; border-radius: 0.8rem; padding: 0.7rem; margin-bottom: 0.7rem; border: 1px solid #edf2f7; transition: all 0.2s ease; cursor: pointer; }
+        .school-card { background: white; border-radius: 0.8rem; padding: 0.7rem; margin-bottom: 0.7rem; border: 1px solid #edf2f7; transition: all 0.2s ease; cursor: pointer; -webkit-tap-highlight-color: rgba(255, 183, 77, 0.3); }
         .school-card:active { transform: scale(0.99); border-color: #ffdeae; box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.1); }
         .school-name { font-weight: 700; font-size: 0.85rem; color: #0c2b3b; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
         .cct-badge { background: #eef2ff; font-size: 0.55rem; font-weight: 600; padding: 0.15rem 0.4rem; border-radius: 20px; color: #1e40af; font-family: monospace; }
         .school-address { font-size: 0.65rem; color: #5b6e8c; margin: 0.2rem 0; display: flex; gap: 4px; align-items: center; }
         .school-details { font-size: 0.62rem; color: #2c5a2e; margin: 0.3rem 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 8px; background: #f8fafc; padding: 5px 7px; border-radius: 10px; }
         .school-details span { font-weight: 600; color: #1e293b; }
-        .school-details .phone-link { color: #1e40af; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 2px; }
-        .school-details .phone-link:active { color: #ffb74d; }
+        .school-details .phone-link { 
+            color: #1e40af; 
+            text-decoration: none; 
+            font-weight: 600; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 2px;
+            padding: 2px 4px;
+            border-radius: 12px;
+            background: #eef2ff;
+            touch-action: manipulation;
+        }
+        .school-details .phone-link:active { background: #ffb74d; color: white; }
         .acciones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-        .ver-mapa-link { font-size: 0.65rem; background: none; border: none; color: #f59e0b; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 20px; transition: background 0.2s; }
+        .ver-mapa-link { 
+            font-size: 0.65rem; 
+            background: none; 
+            border: none; 
+            color: #f59e0b; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 4px; 
+            padding: 4px 8px; 
+            border-radius: 20px; 
+            transition: background 0.2s;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
         .ver-mapa-link:active { background: #fef3c7; color: #d97706; }
         .empty-state { text-align: center; padding: 2rem 1rem; color: #8ba0bc; font-size: 0.8rem; }
         .loading-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #f3f3f3; border-top: 2px solid #ffb74d; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 6px; vertical-align: middle; }
@@ -99,33 +125,41 @@
     function clearMarkers() { currentMarkers.forEach(m => mapInstance.removeLayer(m)); currentMarkers = []; }
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m)); }
 
-    // Función para limpiar coordenadas: convierte coma a punto y valida
     function parseCoordinate(value) {
         if (!value) return NaN;
         if (typeof value === 'string') {
-            // Quitar espacios y reemplazar coma por punto
             let cleaned = value.trim().replace(/\s/g, '').replace(',', '.');
-            // Si el valor tiene formato científico o caracteres extraños, descartar
             if (cleaned.includes('E') || cleaned.includes('e') || cleaned.includes('NaN') || cleaned.includes('Infinity')) {
                 return NaN;
             }
-            const num = parseFloat(cleaned);
-            // Validar que sea un número razonable para México (lat: 14-33, lng: -118 a -86)
-            return num;
+            return parseFloat(cleaned);
         }
         return parseFloat(value);
     }
 
     function isValidLatLng(lat, lng) {
-        // Verificar que estén en rango para México
-        const latOk = !isNaN(lat) && lat >= 14 && lat <= 33;
-        const lngOk = !isNaN(lng) && lng >= -118 && lng <= -86;
-        return latOk && lngOk;
+        return !isNaN(lat) && !isNaN(lng) && lat >= 14 && lat <= 33 && lng >= -118 && lng <= -86;
     }
 
     function formatPhone(phone) {
         if (!phone) return '';
         return phone.toString().replace(/\s/g, '').replace(/-/g, '').replace(/\(/g, '').replace(/\)/g, '');
+    }
+
+    // Función para centrar el mapa en una escuela
+    function centerMapOnSchool(school) {
+        let lat = parseCoordinate(school.latitud);
+        let lng = parseCoordinate(school.longitud);
+        if (isValidLatLng(lat, lng)) {
+            mapInstance.setView([lat, lng], 17);
+            const marker = currentMarkers.find(m => {
+                const pos = m.getLatLng();
+                return Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001;
+            });
+            if (marker) marker.openPopup();
+            return true;
+        }
+        return false;
     }
 
     function renderSchools(filteredSchools) {
@@ -141,7 +175,6 @@
         let cardsHtml = '';
         const bounds = L.latLngBounds();
         const newMarkers = [];
-        let marcadoresMostrados = 0;
 
         filteredSchools.forEach(school => {
             const direccionCompleta = [school.calleYNumero, school.colonia, school.alcaldia, school.cP].filter(p => p && p !== 'N/A' && p !== '0').join(', ') || 'Dirección no especificada';
@@ -159,26 +192,18 @@
                         <div><span>📊 Total:</span> ${school.totalDeEquipos || '0'}</div>
                         <div><span>🏷️ Tipo CCT:</span> ${escapeHtml(school.tipoDeCct || 'N/A')}</div>
                         <div><span>📅 Entrega:</span> ${escapeHtml(school.diaDeEntrega || 'N/A')}</div>
-                        <div><span>👤 Enlace 1:</span> ${escapeHtml(school.enlace1 || 'N/A')} ${tel1 ? `<a class="phone-link" href="tel:${tel1}">📞 ${escapeHtml(school.telefonoEnlace1)}</a>` : ''}</div>
-                        <div><span>👤 Enlace 2:</span> ${escapeHtml(school.enlace2 || 'N/A')} ${tel2 ? `<a class="phone-link" href="tel:${tel2}">📞 ${escapeHtml(school.telEnlace2)}</a>` : ''}</div>
+                        <div><span>👤 Enlace 1:</span> ${escapeHtml(school.enlace1 || 'N/A')} ${tel1 ? `<a class="phone-link" href="tel:${tel1}" onclick="event.stopPropagation();">📞 ${escapeHtml(school.telefonoEnlace1)}</a>` : ''}</div>
+                        <div><span>👤 Enlace 2:</span> ${escapeHtml(school.enlace2 || 'N/A')} ${tel2 ? `<a class="phone-link" href="tel:${tel2}" onclick="event.stopPropagation();">📞 ${escapeHtml(school.telEnlace2)}</a>` : ''}</div>
                     </div>
                     <div class="acciones">
-                        <button class="ver-mapa-link" data-direccion="${escapeHtml(direccionCompleta)}">🗺️ Ver en Google Maps</button>
+                        <button class="ver-mapa-link" data-direccion="${escapeHtml(direccionCompleta)}" onclick="event.stopPropagation();">🗺️ Ver en Google Maps</button>
                     </div>
                 </div>
             `;
 
-            // ======== LIMPIEZA Y VALIDACIÓN DE COORDENADAS ========
-            const latRaw = school.latitud;
-            const lngRaw = school.longitud;
-            
-            // Convertir a número limpio
-            let lat = parseCoordinate(latRaw);
-            let lng = parseCoordinate(lngRaw);
-            
-            // Si son válidas, crear marcador
+            let lat = parseCoordinate(school.latitud);
+            let lng = parseCoordinate(school.longitud);
             if (isValidLatLng(lat, lng)) {
-                marcadoresMostrados++;
                 const popupContent = `
                     <b>${escapeHtml(school.nombreDelCct || 'Sin nombre')}</b><br>
                     ${escapeHtml(school.cct || '')}<br>
@@ -201,32 +226,23 @@
         
         if (newMarkers.length > 0 && bounds.isValid()) {
             mapInstance.fitBounds(bounds, { padding: [40, 40] });
-            console.log(`✅ ${newMarkers.length} marcadores mostrados en el mapa`);
         } else {
             mapInstance.setView([19.4326, -99.1332], 11);
-            if (newMarkers.length === 0 && filteredSchools.length > 0) {
-                container.innerHTML += `<div class="empty-state" style="color:#c62828;">⚠️ No se pudieron ubicar ${filteredSchools.length} centros en el mapa. Verifica que las coordenadas en tu hoja estén en formato numérico válido (ej: 19.4326, -99.1332).</div>`;
-            }
         }
 
-        // Click en tarjeta → centrar mapa
+        // ======== EVENTO CLICK EN TARJETA: CENTRA EL MAPA ========
         document.querySelectorAll('.school-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.closest('.ver-mapa-link') || e.target.closest('.phone-link')) return;
-                const cct = card.dataset.cct;
+            card.addEventListener('click', function(e) {
+                // Si el click fue en un botón o enlace, no hacer nada
+                if (e.target.closest('.ver-mapa-link') || e.target.closest('.phone-link') || e.target.closest('a')) {
+                    return;
+                }
+                const cct = this.dataset.cct;
                 const matched = filteredSchools.find(s => s.cct === cct);
                 if (matched) {
-                    let lat = parseCoordinate(matched.latitud);
-                    let lng = parseCoordinate(matched.longitud);
-                    if (isValidLatLng(lat, lng)) {
-                        mapInstance.setView([lat, lng], 17);
-                        const marker = currentMarkers.find(m => {
-                            const pos = m.getLatLng();
-                            return Math.abs(pos.lat - lat) < 0.0001 && Math.abs(pos.lng - lng) < 0.0001;
-                        });
-                        if (marker) marker.openPopup();
-                    } else {
-                        // Si no tiene coordenadas válidas, abrir Google Maps con dirección
+                    const centrado = centerMapOnSchool(matched);
+                    if (!centrado) {
+                        // Si no tiene coordenadas, abrir Google Maps con dirección
                         const direccion = [
                             matched.calleYNumero, matched.colonia, matched.alcaldia, matched.cP
                         ].filter(p => p && p !== 'N/A' && p !== '0').join(', ');
@@ -238,14 +254,23 @@
             });
         });
 
-        // Botón "Ver en Google Maps"
+        // ======== BOTÓN "VER EN GOOGLE MAPS" ========
         document.querySelectorAll('.ver-mapa-link').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const direccion = btn.dataset.direccion;
+                e.preventDefault();
+                const direccion = this.dataset.direccion;
                 if (direccion && direccion !== 'Dirección no especificada') {
                     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion + ', CDMX, México')}`, '_blank');
                 }
+            });
+        });
+
+        // ======== ENLACES DE TELÉFONO ========
+        document.querySelectorAll('.phone-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // El href="tel:..." ya hace lo suyo
             });
         });
     }
@@ -286,7 +311,6 @@
         const idxLat = getIdx(['latitud', 'w']);
         const idxLng = getIdx(['longitud', 'x']);
         
-        // Si no encontró por nombre, buscar por posición (W=22, X=23)
         let idxLatFinal = idxLat !== -1 ? idxLat : (headers.length > 22 ? 22 : -1);
         let idxLngFinal = idxLng !== -1 ? idxLng : (headers.length > 23 ? 23 : -1);
 
@@ -301,11 +325,9 @@
             const v = lines[i].split('\t').map(x => x.trim().replace(/^"|"$/g, ''));
             if (v.length < 2) continue;
             
-            // Leer latitud y longitud
             let latRaw = idxLatFinal !== -1 && idxLatFinal < v.length ? v[idxLatFinal] : '';
             let lngRaw = idxLngFinal !== -1 && idxLngFinal < v.length ? v[idxLngFinal] : '';
             
-            // Limpiar y validar
             let lat = parseCoordinate(latRaw);
             let lng = parseCoordinate(lngRaw);
             
