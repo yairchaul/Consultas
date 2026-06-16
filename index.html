@@ -193,6 +193,9 @@
             color: #1e40af; 
             text-decoration: none; 
             font-weight: 600; 
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
         }
         .school-details .phone-link:active { color: #ffb74d; }
         .acciones { 
@@ -358,7 +361,9 @@
                 </div>
             `;
 
-            // Marcador con coordenadas reales
+            // ======== USAR COORDENADAS DE COLUMNAS W Y X ========
+            // El código ahora busca 'latitud' y 'longitud' en los datos parseados
+            // que vienen de las columnas W y X de la hoja
             const lat = parseFloat(school.latitud);
             const lng = parseFloat(school.longitud);
             if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
@@ -450,13 +455,53 @@
         const idxTel1 = getIdx(['teléfono enlace 1', 'telefono enlace 1']);
         const idxEnlace2 = getIdx(['enlace 2']);
         const idxTel2 = getIdx(['tel. enlace 2', 'teléfono enlace 2']);
-        const idxLat = getIdx(['latitud']);
-        const idxLng = getIdx(['longitud']);
+        // ======== BUSCAR LATITUD Y LONGITUD EN CUALQUIER COLUMNA ========
+        // Primero intenta con los nombres exactos, luego busca en W y X
+        let idxLat = getIdx(['latitud']);
+        let idxLng = getIdx(['longitud']);
+        
+        // Si no encontró latitud/longitud por nombre, busca por posición (W=columna 23, X=columna 24)
+        // En TSV, la columna W es el índice 22 (0-based) y X es 23
+        if (idxLat === -1) {
+            // Buscar por el encabezado de la columna W en la hoja
+            // Como no sabemos el nombre exacto, intentamos con "w" o buscamos por posición
+            for (let i = 0; i < headers.length; i++) {
+                if (headers[i].toLowerCase().includes('lat') || headers[i] === 'w' || headers[i] === 'columna w') {
+                    idxLat = i;
+                    break;
+                }
+            }
+        }
+        if (idxLng === -1) {
+            for (let i = 0; i < headers.length; i++) {
+                if (headers[i].toLowerCase().includes('lon') || headers[i] === 'x' || headers[i] === 'columna x') {
+                    idxLng = i;
+                    break;
+                }
+            }
+        }
+        
+        // Si aún no encontró, asumir que están en las columnas W y X (índices 22 y 23)
+        if (idxLat === -1 && headers.length > 22) idxLat = 22;
+        if (idxLng === -1 && headers.length > 23) idxLng = 23;
+
+        console.log('🔍 Columnas encontradas:');
+        console.log(`  - latitud: columna ${idxLat} (${idxLat !== -1 ? headers[idxLat] : 'no encontrada'})`);
+        console.log(`  - longitud: columna ${idxLng} (${idxLng !== -1 ? headers[idxLng] : 'no encontrada'})`);
         
         const schools = [];
         for (let i = 1; i < lines.length; i++) {
             const v = lines[i].split('\t').map(x => x.trim().replace(/^"|"$/g, ''));
             if (v.length < 2) continue;
+            
+            // Parsear latitud y longitud (reemplazar coma por punto si es necesario)
+            let latVal = idxLat !== -1 && idxLat < v.length ? v[idxLat] : '';
+            let lngVal = idxLng !== -1 && idxLng < v.length ? v[idxLng] : '';
+            
+            // Reemplazar coma decimal por punto
+            if (typeof latVal === 'string') latVal = latVal.replace(',', '.');
+            if (typeof lngVal === 'string') lngVal = lngVal.replace(',', '.');
+            
             schools.push({
                 nombreDelCct: idxNombre !== -1 ? v[idxNombre] || '' : '',
                 cct: idxCCT !== -1 ? v[idxCCT] || '' : '',
@@ -474,8 +519,8 @@
                 telefonoEnlace1: idxTel1 !== -1 ? v[idxTel1] || '' : '',
                 enlace2: idxEnlace2 !== -1 ? v[idxEnlace2] || '' : '',
                 telEnlace2: idxTel2 !== -1 ? v[idxTel2] || '' : '',
-                latitud: idxLat !== -1 ? parseFloat(v[idxLat]) : NaN,
-                longitud: idxLng !== -1 ? parseFloat(v[idxLng]) : NaN
+                latitud: parseFloat(latVal),
+                longitud: parseFloat(lngVal)
             });
         }
         return schools;
